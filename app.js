@@ -23,6 +23,6 @@ app.get("/", async (req, res) => {
   res.send("hello world!");
 });
 
-app.listen(() => {
-  console.log(`Example app listening at http://localhost:${port}`);
+app.listen(PORT, () => {
+  console.log(`Example app listening at http://localhost:${PORT}`);
 });

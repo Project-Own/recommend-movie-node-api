@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.static("public"));
 
-app.get("/", async (req, res) => {
+app.get("/hello", async (req, res) => {
   const model = await tf.loadGraphModel("file://multvae/model.json");
 
   let zeros = (w, h, v = 0) =>

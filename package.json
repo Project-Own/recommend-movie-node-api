@@ -1,0 +1,20 @@
+{
+  "name": "machine-learning",
+  "version": "1.0.0",
+  "description": "A machine learning project",
+  "main": "app.js",
+  "author": "Sahas Prajapati",
+  "license": "MIT",
+  "private": "false",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^2.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1"
+  },
+  "engines": {
+    "node": "14.x"
+  }
+}

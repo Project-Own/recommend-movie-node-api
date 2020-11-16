@@ -73,7 +73,9 @@ app.post("/predict/:k", async (req, res) => {
       typeof preferred_movies === "undefined" ||
       preferred_movies.length === 0
     ) {
-      res.send("NO PREFERENCE SENT");
+      res.send(
+        "NO PREFERENCE SENT.SEND POST BODY IN FORMAT {'preferred_movies':[0,1,2...]}"
+      );
     } else {
       const indices = preferred_movies;
       const indices_array = tf.tensor1d(
@@ -165,7 +167,11 @@ app.get("/predict/:k", async (req, res) => {
     input.dispose();
     result.dispose();
 
-    res.send({ movies: list });
+    res.send({
+      movies: list,
+      msg:
+        "NO PREFERENCE SENT.SEND POST REQUEST WITH BODY IN FORMAT {'preferred_movies':[0,1,2,...<Preffered Movie list>]}",
+    });
   } else {
     res.send("MODEL NOT LOADED");
   }

@@ -2,78 +2,221 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const tf = require("@tensorflow/tfjs-node");
-const float16 = require("@petamoriken/float16");
-const model = require("./model");
 
+const bodyParser = require("body-parser");
+const MongoClient = require("mongodb").MongoClient;
+
+// const model = require("./model");
+let model;
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.static("public"));
+app.use(bodyParser.json());
 
-app.get("/hello", async (req, res) => {
-  const model = await tf.loadGraphModel("file://MultVaeJS/model.json");
-  let zeros = (w, h, v = 0) =>
-    Array.from(new Array(h), (_) => Array(w).fill(v));
-  let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  let indices_array = tf.tensor1d(
-    indices.map((index) => index),
-    (dtype = "int32")
-  );
-  let value = tf.tensor1d(
-    indices.map(() => 1),
-    (dtype = "float32")
-  );
-  let shape = [62000];
-  let dense = tf.sparseToDense(indices_array, value, shape);
-  let denseExpanded = tf.expandDims(dense, 0);
+const loadModel = async () => {
+  model = await tf.loadGraphModel("file://MultVaeJS/model.json");
+  console.log("MODEL LOADED");
+};
 
-  console.log(indices_array);
-  console.log(value);
-  console.log(denseExpanded);
-  console.log(model.inputs);
-  // console.log(tf.sparseToDen/zse(indices_array, value));
-  // const result = await model.executeAsync(tf.zeros([1, 62000]));
-  const result = await model.predict(denseExpanded);
-  console.log(result);
-  console.log("hello");
-  res.send("hello world!");
+loadModel();
+
+const uri =
+  "mongodb+srv://nirjal123:nirjal123@cluster0.6jptv.mongodb.net/Movie?retryWrites=true&w=majority";
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
 });
 
-app.get("/model", (req, res) => {
-  input_dim = 62000;
-  latent_dim = 32;
-  encoder_dims = [128];
+const find = async (list) => {
+  let allValues;
+  const client = await MongoClient.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }).catch((err) => console.log(err));
 
-  let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  let indices_array = tf.tensor1d(
-    indices.map((index) => index),
-    (dtype = "int32")
-  );
-  let value = tf.tensor1d(
-    indices.map(() => 1),
-    (dtype = "float32")
-  );
+  if (!client) {
+    return;
+  }
 
-  let shape = [62000];
-  let dense = tf.sparseToDense(indices_array, value, shape);
-  let denseExpanded = tf.expandDims(dense, 0);
+  try {
+    const db = client.db("Movie");
+    const collection = db.collection("movie_dataset");
 
-  encoder = model.encoder(input_dim, latent_dim, encoder_dims);
-  decoder = model.decoder(input_dim, latent_dim, encoder_dims);
-  vae = new model.vae(encoder, decoder);
-  output = encoder.predict(denseExpanded);
-  z_mean = output[0];
-  z_log_var = output[1];
-  z = tf.add(
-    z_mean,
-    tf.mul(tf.exp(tf.mul(0.5, z_log_var)), tf.randomNormal([1, latent_dim]))
-  );
+    let cursor = collection.find(
+      { movieId: { $in: list } },
+      {
+        projection: { _id: 0, genres: 1, title: 1, vote_average: 1 },
+      }
+    );
 
-  decoded_output = decoder.predict(z);
-  console.log(z);
-  console.log(decoded_output);
-  console.log("hello");
-  res.send("Model");
+    // for await (const doc of cursor) {
+    //   console.log(doc);
+    // }
+    allValues = await cursor.toArray();
+
+    // console.log(allValues);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    client.close();
+  }
+  return allValues;
+};
+
+// getData(["0"])
+app.post("/predict/:k", async (req, res) => {
+  if (typeof model !== "undefined") {
+    preferred_movies = req.body.preferred_movies;
+    preferred_movies.sort((a, b) => a - b);
+    if (
+      typeof preferred_movies === "undefined" ||
+      preferred_movies.length === 0
+    ) {
+      res.send("NO PREFERENCE SENT");
+    } else {
+      const indices = preferred_movies;
+      const indices_array = tf.tensor1d(
+        indices.map((index) => index),
+        (dtype = "int32")
+      );
+      const value = tf.tensor1d(
+        indices.map(() => 1),
+        (dtype = "float32")
+      );
+      const shape = [62000];
+      const input = tf.expandDims(
+        tf.sparseToDense(indices_array, value, shape),
+        0
+      );
+
+      const result = await model.predict(input);
+
+      const data = await result.data();
+
+      result.dispose();
+      input.dispose();
+
+      // Sort Descending
+      let movies = [...Array(62000).keys()].sort((a, b) => {
+        return data[b] - data[a];
+      });
+      let count = 0;
+      let movieList = [];
+      while (movieList.length < req.params.k) {
+        if (!indices.includes(movies[count])) movieList.push(movies[count]);
+
+        count++;
+      }
+      movies = movieList.map(String);
+      list = await find(movies);
+
+      res.send({ movie: list });
+    }
+  } else {
+    res.send("MODEL NOT LOADED");
+  }
+
+  res.end();
+});
+
+app.get("/predict/:k", async (req, res) => {
+  if (typeof model !== "undefined") {
+    const indices = [3147, 1721, 1, 2028, 50, 527, 608];
+    indices.sort((a, b) => a - b);
+    const indices_array = tf.tensor1d(
+      indices.map((index) => index),
+      (dtype = "int32")
+    );
+    const value = tf.tensor1d(
+      indices.map(() => 1),
+      (dtype = "float32")
+    );
+    const shape = [62000];
+    const input = tf.expandDims(
+      tf.sparseToDense(indices_array, value, shape),
+      0
+    );
+
+    const result = await model.predict(input);
+    const data = await result.data();
+
+    // descending sort
+    // data.sort(function (a, b) {
+    //   return b - a;
+    // });
+
+    let movies = [...Array(62000).keys()].sort((a, b) => {
+      return data[b] - data[a];
+    });
+    let count = 0;
+    let movieList = [];
+    while (movieList.length < req.params.k) {
+      if (!indices.includes(movies[count])) {
+        movieList.push(movies[count]);
+      }
+      count++;
+    }
+    movies = movieList.map(String);
+    // console.log(movieList);
+    list = await find(movies);
+    // console.log(movies);
+    // console.log(list);
+    input.dispose();
+    result.dispose();
+
+    res.send({ movies: list });
+  } else {
+    res.send("MODEL NOT LOADED");
+  }
+
+  res.end();
+});
+
+// app.get("/model", (req, res) => {
+//   input_dim = 62000;
+//   latent_dim = 32;
+//   encoder_dims = [128];
+
+//   let indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+//   let indices_array = tf.tensor1d(
+//     indices.map((index) => index),
+//     (dtype = "int32")
+//   );
+//   let value = tf.tensor1d(
+//     indices.map(() => 1),
+//     (dtype = "float32")
+//   );
+
+//   let shape = [62000];
+//   let dense = tf.sparseToDense(indices_array, value, shape);
+//   let denseExpanded = tf.expandDims(dense, 0);
+
+//   encoder = model.encoder(input_dim, latent_dim, encoder_dims);
+//   decoder = model.decoder(input_dim, latent_dim, encoder_dims);
+//   vae = new model.vae(encoder, decoder);
+//   output = encoder.predict(denseExpanded);
+//   z_mean = output[0];
+//   z_log_var = output[1];
+//   z = tf.add(
+//     z_mean,
+//     tf.mul(tf.exp(tf.mul(0.5, z_log_var)), tf.randomNormal([1, latent_dim]))
+//   );
+
+//   decoded_output = decoder.predict(z);
+//   console.log(z);
+//   console.log(decoded_output);
+//   console.log("hello");
+//   res.send("Model");
+// });
+
+app.get("*", (req, res) => {
+  res.send("404");
+  res.end();
+});
+app.post("*", (req, res) => {
+  res.send("404");
+  res.end();
 });
 app.listen(PORT, () => {
   console.log(`Example app listening at http://localhost:${PORT}`);

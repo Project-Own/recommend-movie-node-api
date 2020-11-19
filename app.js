@@ -41,12 +41,12 @@ const find = async (list) => {
 
   try {
     const db = client.db("Movie");
-    const collection = db.collection("movie_dataset");
+    const collection = db.collection("Movie");
 
     let cursor = collection.find(
       { movieId: { $in: list } },
       {
-        projection: { _id: 0, genres: 1, title: 1, vote_average: 1 },
+        projection: { _id: 0, genres: 1, title: 1, posterPath: 1 },
       }
     );
 
@@ -105,7 +105,7 @@ app.post("/predict/:k", async (req, res) => {
       });
       let count = 0;
       let movieList = [];
-      while (movieList.length < req.params.k) {
+      while (movieList.length <= req.params.k) {
         if (!indices.includes(movies[count])) movieList.push(movies[count]);
 
         count++;
@@ -153,7 +153,7 @@ app.get("/predict/:k", async (req, res) => {
     });
     let count = 0;
     let movieList = [];
-    while (movieList.length < req.params.k) {
+    while (movieList.length <= req.params.k) {
       if (!indices.includes(movies[count])) {
         movieList.push(movies[count]);
       }

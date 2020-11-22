@@ -269,7 +269,12 @@ app.get("/predict/:k", async (req, res) => {
 //   console.log("hello");
 //   res.send("Model");
 // });
-
+app.get("/", (req, res) => {
+  res.send({
+    msg:
+      "This api is open at /predict/k where k is number of recommendation required like /predict/5 ",
+  });
+});
 app.get("*", (req, res) => {
   res.send("404");
   res.end();

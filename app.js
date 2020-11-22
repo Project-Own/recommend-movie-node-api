@@ -28,7 +28,7 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
 });
 
-const find = async (list) => {
+const findIndex = async (list) => {
   let allValues;
   const client = await MongoClient.connect(uri, {
     useNewUrlParser: true,
@@ -46,7 +46,50 @@ const find = async (list) => {
     let cursor = collection.find(
       { movieId: { $in: list } },
       {
-        projection: { _id: 0, genres: 1, title: 1, posterPath: 1 },
+        projection: { _id: 0, index: 1 },
+      }
+    );
+
+    // for await (const doc of cursor) {
+    //   console.log(doc);
+    // }
+    allValues = await cursor.toArray();
+
+    // console.log(allValues);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    client.close();
+  }
+  return allValues;
+};
+
+const findMovie = async (list) => {
+  let allValues;
+  const client = await MongoClient.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }).catch((err) => console.log(err));
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    const db = client.db("Movie");
+    const collection = db.collection("Movie");
+
+    let cursor = collection.find(
+      { index: { $in: list } },
+      {
+        projection: {
+          _id: 0,
+          genres: 1,
+          title: 1,
+          posterPath: 1,
+          index: 1,
+          movieId: 1,
+        },
       }
     );
 
@@ -69,6 +112,7 @@ app.post("/predict/:k", async (req, res) => {
   if (typeof model !== "undefined") {
     preferred_movies = req.body.preferred_movies;
     preferred_movies.sort((a, b) => a - b);
+    preferred_movies = preferred_movies.map(String);
     if (
       typeof preferred_movies === "undefined" ||
       preferred_movies.length === 0
@@ -77,7 +121,9 @@ app.post("/predict/:k", async (req, res) => {
         "NO PREFERENCE SENT.SEND POST BODY IN FORMAT {'preferred_movies':[0,1,2...]}"
       );
     } else {
-      const indices = preferred_movies;
+      let indices = await findIndex(preferred_movies);
+
+      indices = indices.map((value) => value.index);
       const indices_array = tf.tensor1d(
         indices.map((index) => index),
         (dtype = "int32")
@@ -103,6 +149,8 @@ app.post("/predict/:k", async (req, res) => {
       let movies = [...Array(62000).keys()].sort((a, b) => {
         return data[b] - data[a];
       });
+
+      movies = movies.map(String);
       let count = 0;
       let movieList = [];
       while (movieList.length <= req.params.k) {
@@ -110,8 +158,7 @@ app.post("/predict/:k", async (req, res) => {
 
         count++;
       }
-      movies = movieList.map(String);
-      list = await find(movies);
+      list = await findMovie(movieList);
 
       res.send({ movie: list });
     }
@@ -124,8 +171,14 @@ app.post("/predict/:k", async (req, res) => {
 
 app.get("/predict/:k", async (req, res) => {
   if (typeof model !== "undefined") {
-    const indices = [3147, 1721, 1, 2028, 50, 527, 608];
+    let indices = [3147, 1721, 1, 2028, 50, 527, 608];
     indices.sort((a, b) => a - b);
+    indices = indices.map(String);
+    // console.log(indices);
+    indices = await findIndex(indices);
+    // console.log(indices);
+    indices = indices.map((value) => value.index);
+    // console.log(indices);
     const indices_array = tf.tensor1d(
       indices.map((index) => index),
       (dtype = "int32")
@@ -151,6 +204,8 @@ app.get("/predict/:k", async (req, res) => {
     let movies = [...Array(62000).keys()].sort((a, b) => {
       return data[b] - data[a];
     });
+
+    movies = movies.map(String);
     let count = 0;
     let movieList = [];
     while (movieList.length <= req.params.k) {
@@ -159,9 +214,8 @@ app.get("/predict/:k", async (req, res) => {
       }
       count++;
     }
-    movies = movieList.map(String);
     // console.log(movieList);
-    list = await find(movies);
+    list = await findMovie(movieList);
     // console.log(movies);
     // console.log(list);
     input.dispose();

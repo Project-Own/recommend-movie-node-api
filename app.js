@@ -8,7 +8,7 @@ const MongoClient = require("mongodb").MongoClient;
 
 // const model = require("./model");
 let model;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.static("public"));
@@ -16,6 +16,7 @@ app.use(bodyParser.json());
 
 const loadModel = async () => {
   model = await tf.loadGraphModel("file://MultVaeJS/model.json");
+  // model = await tf.loadGraphModel("file://HVAE-EMBEDDING-KDD-JS/model.json");
   console.log("MODEL LOADED");
 };
 
@@ -112,7 +113,6 @@ app.post("/predict/:k", async (req, res) => {
   if (typeof model !== "undefined") {
     preferred_movies = req.body.preferred_movies;
     preferred_movies.sort((a, b) => a - b);
-    preferred_movies = preferred_movies.map(String);
     if (
       typeof preferred_movies === "undefined" ||
       preferred_movies.length === 0
@@ -121,15 +121,12 @@ app.post("/predict/:k", async (req, res) => {
         "NO PREFERENCE SENT.SEND POST BODY IN FORMAT {'preferred_movies':[0,1,2...]}"
       );
     } else {
-      let indices = await findIndex(preferred_movies);
-
-      indices = indices.map((value) => value.index);
       const indices_array = tf.tensor1d(
-        indices.map((index) => index),
+        preferred_movies.map((index) => index),
         (dtype = "int32")
       );
       const value = tf.tensor1d(
-        indices.map(() => 1),
+        preferred_movies.map(() => 1),
         (dtype = "float32")
       );
       const shape = [62000];
@@ -150,11 +147,11 @@ app.post("/predict/:k", async (req, res) => {
         return data[b] - data[a];
       });
 
-      movies = movies.map(String);
       let count = 0;
       let movieList = [];
       while (movieList.length <= req.params.k) {
-        if (!indices.includes(movies[count])) movieList.push(movies[count]);
+        if (!preferred_movies.includes(movies[count]))
+          movieList.push(movies[count]);
 
         count++;
       }
@@ -173,7 +170,7 @@ app.get("/predict/:k", async (req, res) => {
   if (typeof model !== "undefined") {
     let indices = [3147, 1721, 1, 2028, 50, 527, 608];
     indices.sort((a, b) => a - b);
-    indices = indices.map(String);
+    // indices = indices.map(String);
     // console.log(indices);
     indices = await findIndex(indices);
     // console.log(indices);
@@ -205,7 +202,7 @@ app.get("/predict/:k", async (req, res) => {
       return data[b] - data[a];
     });
 
-    movies = movies.map(String);
+    // movies = movies.map(String);
     let count = 0;
     let movieList = [];
     while (movieList.length <= req.params.k) {

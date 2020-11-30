@@ -80,19 +80,7 @@ const findMovie = async (list) => {
     const db = client.db("Movie");
     const collection = db.collection("Movie");
 
-    let cursor = collection.find(
-      { index: { $in: list } },
-      {
-        projection: {
-          _id: 0,
-          genres: 1,
-          title: 1,
-          posterPath: 1,
-          index: 1,
-          movieId: 1,
-        },
-      }
-    );
+    let cursor = collection.find({ index: { $in: list } });
 
     // for await (const doc of cursor) {
     //   console.log(doc);

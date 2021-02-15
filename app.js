@@ -65,6 +65,42 @@ const findIndex = async (list) => {
   return allValues;
 };
 
+const findGenres = async (list) => {
+  let allValues;
+  const client = await MongoClient.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }).catch((err) => console.log(err));
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    const db = client.db("Movie");
+    const collection = db.collection("Movie");
+
+    let cursor = collection.find(
+      { index: { $in: list } },
+      {
+        projection: { _id: 0, genres: 1 },
+      }
+    );
+
+    // for await (const doc of cursor) {
+    //   console.log(doc);
+    // }
+    allValues = await cursor.toArray();
+
+    // console.log(allValues);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    client.close();
+  }
+  return allValues;
+};
+
 const findMovie = async (list) => {
   let allValues;
   const client = await MongoClient.connect(uri, {
@@ -205,6 +241,90 @@ app.get("/predict/:k", async (req, res) => {
     // console.log(list);
     input.dispose();
     result.dispose();
+
+    res.send({
+      movies: list,
+      msg:
+        "NO PREFERENCE SENT.SEND POST REQUEST WITH BODY IN FORMAT {'preferred_movies':[0,1,2,...<Preffered Movie list>]}",
+    });
+  } else {
+    res.send("MODEL NOT LOADED");
+  }
+
+  res.end();
+});
+
+app.get("/predict/:genre/:k", async (req, res) => {
+  const k = Math.min(req.params.k, 50);
+  console.log(req.params.genre);
+  if (typeof model !== "undefined") {
+    let indices = [3147, 1721, 1, 2028, 50, 527, 608];
+    indices.sort((a, b) => a - b);
+    // indices = indices.map(String);
+    // console.log(indices);
+    indices = await findIndex(indices);
+    // console.log(indices);
+    indices = indices.map((value) => value.index);
+    // console.log(indices);
+    const indices_array = tf.tensor1d(
+      indices.map((index) => index),
+      (dtype = "int32")
+    );
+    const value = tf.tensor1d(
+      indices.map(() => 1),
+      (dtype = "float32")
+    );
+    const shape = [62000];
+    const input = tf.expandDims(
+      tf.sparseToDense(indices_array, value, shape),
+      0
+    );
+
+    const result = await model.predict(input);
+    const data = await result.data();
+
+    // descending sort
+    // data.sort(function (a, b) {
+    //   return b - a;
+    // });
+
+    let movies = [...Array(62000).keys()].sort((a, b) => {
+      return data[b] - data[a];
+    });
+
+    input.dispose();
+    result.dispose();
+
+    let list = [];
+    let mainLoopCounter = 0;
+    const increment = 50;
+    while (list.length < req.params.k && mainLoopCounter < increment * 4) {
+      movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
+      mainLoopCounter += increment;
+      console.log("Main LOOP COUNTER: " + mainLoopCounter);
+      const movieDetails = await findMovie(movies);
+      // console.log(movieDetails);
+      // console.log(movieGenres);
+      // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));
+      // console.log(movieGenres[0]?.genres.split("|")?.includes(req.params.genre));
+      // movies = movies.map(String);
+      let count = 0;
+      while (list.length < req.params.k && count < movies.length) {
+        if (!indices.includes(movieDetails[count].index)) {
+          if (
+            movieDetails[count].genres
+              ?.toLowerCase()
+              .split("|")
+              .includes(req.params.genre)
+          ) {
+            list.push(movieDetails[count]);
+          }
+        }
+        count++;
+      }
+    }
+    // console.log(movies);
+    // console.log(list);
 
     res.send({
       movies: list,

@@ -116,7 +116,9 @@ const findMovie = async (list) => {
     const db = client.db("Movie");
     const collection = db.collection("Movie");
 
-    let cursor = collection.find({ index: { $in: list } });
+    let cursor = collection
+      .find({ index: { $in: list } })
+      .sort({ popularity: -1 });
 
     // for await (const doc of cursor) {
     //   console.log(doc);
@@ -148,7 +150,9 @@ const findMovieWithGenre = async (list, genre) => {
     const db = client.db("Movie");
     const collection = db.collection("Movie");
 
-    let cursor = collection.find({ index: { $in: list }, genres: genreRegex });
+    let cursor = collection
+      .find({ index: { $in: list }, genres: genreRegex })
+      .sort({ popularity: -1 });
 
     // for await (const doc of cursor) {
     //   console.log(doc);
@@ -329,7 +333,7 @@ app.get("/predict/:genre/:k", async (req, res) => {
 
     let list = [];
     let mainLoopCounter = 0;
-    const increment = req.params.k;
+    const increment = parseInt(req.params.k);
     while (list.length < req.params.k && mainLoopCounter < 1000) {
       const moviesSlice = movies.slice(
         mainLoopCounter,
@@ -387,9 +391,120 @@ app.get("/predict/:genre/:k", async (req, res) => {
   res.end();
 });
 
+app.post("/predict/genre/:k", async (req, res) => {
+  if (typeof model !== "undefined") {
+    let genres = req.body.genres;
+    console.log(genres);
+    let preferred_movies = req.body.preferred_movies;
+    preferred_movies.sort((a, b) => a - b);
+    if (
+      typeof preferred_movies === "undefined" ||
+      preferred_movies.length === 0
+    ) {
+      res.send(
+        "NO PREFERENCE SENT.SEND POST BODY IN FORMAT {'preferred_movies':[0,1,2...]}"
+      );
+    } else {
+      const indices_array = tf.tensor1d(
+        preferred_movies.map((index) => index),
+        (dtype = "int32")
+      );
+      const value = tf.tensor1d(
+        preferred_movies.map(() => 1),
+        (dtype = "float32")
+      );
+      const shape = [62000];
+      const input = tf.expandDims(
+        tf.sparseToDense(indices_array, value, shape),
+        0
+      );
+
+      const result = await model.predict(input);
+
+      const data = await result.data();
+
+      // Sort Descending
+      let movies = [...Array(62000).keys()].sort((a, b) => {
+        return data[b] - data[a];
+      });
+
+      result.dispose();
+      input.dispose();
+
+      let list = {};
+      let outputList = {};
+      genres.map((genre) => {
+        list[genre] = [];
+        outputList[genre] = [];
+      });
+
+      let mainLoopCounter = 0;
+      const increment = 100;
+      while (mainLoopCounter <= 100) {
+        const moviesSlice = movies.slice(
+          mainLoopCounter,
+          mainLoopCounter + increment
+        );
+        mainLoopCounter += increment;
+        console.log("Main LOOP COUNTER: " + mainLoopCounter);
+        const movieDetails = await findMovie(moviesSlice);
+
+        // console.log(movieGenres);
+        // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));
+        // console.log(movieGenres[0]?.genres.split("|")?.includes(req.params.genre));
+        // movies = movies.map(String);
+
+        if (
+          !movieDetails ||
+          movieDetails?.length === 0 ||
+          typeof movieDetails == "undefined"
+        ) {
+          continue;
+        }
+        // console.log(movieDetails);
+
+        let count = 0;
+        while (count < moviesSlice.length) {
+          // console.log("here");
+          if (!preferred_movies.includes(movieDetails[count]?.index)) {
+            const movieGenres = movieDetails[count]?.genres
+              ?.toLowerCase()
+              .split("|");
+            // console.log("MOVIE GENRES");
+            // console.log(movieGenres);
+            Object.keys(list).map((genre) => {
+              // console.log(genre);
+              if (movieGenres.includes(genre)) {
+                list[genre].push(movieDetails[count]);
+              }
+            });
+          }
+          count++;
+        }
+
+        Object.keys(list).map((genre) => {
+          if (list[genre].length >= req.params.k) {
+            outputList[genre] = list[genre];
+            delete list[genre];
+          }
+        });
+        if (Object.keys(list).length <= 0) {
+          break;
+        }
+      }
+
+      res.send(outputList);
+    }
+  } else {
+    res.send("MODEL NOT LOADED");
+  }
+
+  res.end();
+});
+
 app.post("/predict/:genre/:k", async (req, res) => {
   if (typeof model !== "undefined") {
-    preferred_movies = req.body.preferred_movies;
+    let preferred_movies = req.body.preferred_movies;
     preferred_movies.sort((a, b) => a - b);
     if (
       typeof preferred_movies === "undefined" ||
@@ -427,7 +542,7 @@ app.post("/predict/:genre/:k", async (req, res) => {
 
       let list = [];
       let mainLoopCounter = 0;
-      const increment = req.params.k;
+      const increment = parseInt(req.params.k);
       while (list.length < req.params.k && mainLoopCounter < 1000) {
         const moviesSlice = movies.slice(
           mainLoopCounter,

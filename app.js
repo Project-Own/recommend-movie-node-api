@@ -8,7 +8,7 @@ const MongoClient = require("mongodb").MongoClient;
 
 // const model = require("./model");
 let model;
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 app.use(cors());
 app.use(express.static("public"));
@@ -117,6 +117,38 @@ const findMovie = async (list) => {
     const collection = db.collection("Movie");
 
     let cursor = collection.find({ index: { $in: list } });
+
+    // for await (const doc of cursor) {
+    //   console.log(doc);
+    // }
+    allValues = await cursor.toArray();
+
+    // console.log(allValues);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    client.close();
+  }
+  return allValues;
+};
+
+const findMovieWithGenre = async (list, genre) => {
+  const genreRegex = new RegExp(genre, "i");
+  let allValues;
+  const client = await MongoClient.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }).catch((err) => console.log(err));
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    const db = client.db("Movie");
+    const collection = db.collection("Movie");
+
+    let cursor = collection.find({ index: { $in: list }, genres: genreRegex });
 
     // for await (const doc of cursor) {
     //   console.log(doc);
@@ -297,12 +329,12 @@ app.get("/predict/:genre/:k", async (req, res) => {
 
     let list = [];
     let mainLoopCounter = 0;
-    const increment = 50;
-    while (list.length < req.params.k && mainLoopCounter < increment * 4) {
+    const increment = 100;
+    while (list.length < req.params.k && mainLoopCounter < increment * 10) {
       movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
       mainLoopCounter += increment;
       console.log("Main LOOP COUNTER: " + mainLoopCounter);
-      const movieDetails = await findMovie(movies);
+      const movieDetails = await findMovieWithGenre(movies, req.params.genre);
       // console.log(movieDetails);
       // console.log(movieGenres);
       // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));
@@ -378,12 +410,12 @@ app.post("/predict/:genre/:k", async (req, res) => {
 
       let list = [];
       let mainLoopCounter = 0;
-      const increment = 50;
-      while (list.length < req.params.k && mainLoopCounter < increment * 4) {
+      const increment = 100;
+      while (list.length < req.params.k && mainLoopCounter < increment * 10) {
         movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
         mainLoopCounter += increment;
         console.log("Main LOOP COUNTER: " + mainLoopCounter);
-        const movieDetails = await findMovie(movies);
+        const movieDetails = await findMovieWithGenre(movies, req.params.genre);
         // console.log(movieDetails);
         // console.log(movieGenres);
         // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));

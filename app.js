@@ -329,8 +329,8 @@ app.get("/predict/:genre/:k", async (req, res) => {
 
     let list = [];
     let mainLoopCounter = 0;
-    const increment = 100;
-    while (list.length < req.params.k && mainLoopCounter < increment * 10) {
+    const increment = req.params.k;
+    while (list.length < req.params.k && mainLoopCounter < increment * 20) {
       movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
       mainLoopCounter += increment;
       console.log("Main LOOP COUNTER: " + mainLoopCounter);
@@ -410,8 +410,8 @@ app.post("/predict/:genre/:k", async (req, res) => {
 
       let list = [];
       let mainLoopCounter = 0;
-      const increment = 100;
-      while (list.length < req.params.k && mainLoopCounter < increment * 10) {
+      const increment = req.params.k;
+      while (list.length < req.params.k && mainLoopCounter < increment * 20) {
         movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
         mainLoopCounter += increment;
         console.log("Main LOOP COUNTER: " + mainLoopCounter);

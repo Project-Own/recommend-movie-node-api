@@ -338,6 +338,82 @@ app.get("/predict/:genre/:k", async (req, res) => {
   res.end();
 });
 
+app.post("/predict/:genre/:k", async (req, res) => {
+  if (typeof model !== "undefined") {
+    preferred_movies = req.body.preferred_movies;
+    preferred_movies.sort((a, b) => a - b);
+    if (
+      typeof preferred_movies === "undefined" ||
+      preferred_movies.length === 0
+    ) {
+      res.send(
+        "NO PREFERENCE SENT.SEND POST BODY IN FORMAT {'preferred_movies':[0,1,2...]}"
+      );
+    } else {
+      const indices_array = tf.tensor1d(
+        preferred_movies.map((index) => index),
+        (dtype = "int32")
+      );
+      const value = tf.tensor1d(
+        preferred_movies.map(() => 1),
+        (dtype = "float32")
+      );
+      const shape = [62000];
+      const input = tf.expandDims(
+        tf.sparseToDense(indices_array, value, shape),
+        0
+      );
+
+      const result = await model.predict(input);
+
+      const data = await result.data();
+
+      result.dispose();
+      input.dispose();
+
+      // Sort Descending
+      let movies = [...Array(62000).keys()].sort((a, b) => {
+        return data[b] - data[a];
+      });
+
+      let list = [];
+      let mainLoopCounter = 0;
+      const increment = 50;
+      while (list.length < req.params.k && mainLoopCounter < increment * 4) {
+        movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
+        mainLoopCounter += increment;
+        console.log("Main LOOP COUNTER: " + mainLoopCounter);
+        const movieDetails = await findMovie(movies);
+        // console.log(movieDetails);
+        // console.log(movieGenres);
+        // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));
+        // console.log(movieGenres[0]?.genres.split("|")?.includes(req.params.genre));
+        // movies = movies.map(String);
+        let count = 0;
+        while (list.length < req.params.k && count < movies.length) {
+          if (!preferred_movies.includes(movieDetails[count].index)) {
+            if (
+              movieDetails[count].genres
+                ?.toLowerCase()
+                .split("|")
+                .includes(req.params.genre)
+            ) {
+              list.push(movieDetails[count]);
+            }
+          }
+          count++;
+        }
+      }
+
+      res.send({ movie: list });
+    }
+  } else {
+    res.send("MODEL NOT LOADED");
+  }
+
+  res.end();
+});
+
 // app.get("/model", (req, res) => {
 //   input_dim = 62000;
 //   latent_dim = 32;
@@ -380,6 +456,7 @@ app.get("/", (req, res) => {
       "This api is open at /predict/k where k is number of recommendation required like /predict/5 ",
   });
 });
+404;
 app.get("*", (req, res) => {
   res.send("404");
   res.end();

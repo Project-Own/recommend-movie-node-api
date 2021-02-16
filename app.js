@@ -8,7 +8,7 @@ const MongoClient = require("mongodb").MongoClient;
 
 // const model = require("./model");
 let model;
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.static("public"));
@@ -330,21 +330,38 @@ app.get("/predict/:genre/:k", async (req, res) => {
     let list = [];
     let mainLoopCounter = 0;
     const increment = req.params.k;
-    while (list.length < req.params.k && mainLoopCounter < increment * 20) {
-      movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
+    while (list.length < req.params.k && mainLoopCounter < 1000) {
+      const moviesSlice = movies.slice(
+        mainLoopCounter,
+        mainLoopCounter + increment
+      );
       mainLoopCounter += increment;
       console.log("Main LOOP COUNTER: " + mainLoopCounter);
-      const movieDetails = await findMovieWithGenre(movies, req.params.genre);
+      const movieDetails = await findMovieWithGenre(
+        moviesSlice,
+        req.params.genre
+      );
       // console.log(movieDetails);
+      // const movieDetails1 = await findMovie(moviesSlice);
+      // console.log(movieDetails1);
+
+      if (
+        !movieDetails ||
+        movieDetails?.length === 0 ||
+        typeof movieDetails == "undefined"
+      ) {
+        continue;
+      }
+
       // console.log(movieGenres);
       // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));
       // console.log(movieGenres[0]?.genres.split("|")?.includes(req.params.genre));
       // movies = movies.map(String);
       let count = 0;
-      while (list.length < req.params.k && count < movies.length) {
-        if (!indices.includes(movieDetails[count].index)) {
+      while (list.length < req.params.k && count < moviesSlice.length) {
+        if (!indices.includes(movieDetails[count]?.index)) {
           if (
-            movieDetails[count].genres
+            movieDetails[count]?.genres
               ?.toLowerCase()
               .split("|")
               .includes(req.params.genre)
@@ -400,32 +417,47 @@ app.post("/predict/:genre/:k", async (req, res) => {
 
       const data = await result.data();
 
-      result.dispose();
-      input.dispose();
-
       // Sort Descending
       let movies = [...Array(62000).keys()].sort((a, b) => {
         return data[b] - data[a];
       });
 
+      result.dispose();
+      input.dispose();
+
       let list = [];
       let mainLoopCounter = 0;
       const increment = req.params.k;
-      while (list.length < req.params.k && mainLoopCounter < increment * 20) {
-        movies = movies.slice(mainLoopCounter, mainLoopCounter + increment);
+      while (list.length < req.params.k && mainLoopCounter < 1000) {
+        const moviesSlice = movies.slice(
+          mainLoopCounter,
+          mainLoopCounter + increment
+        );
         mainLoopCounter += increment;
         console.log("Main LOOP COUNTER: " + mainLoopCounter);
-        const movieDetails = await findMovieWithGenre(movies, req.params.genre);
+        const movieDetails = await findMovieWithGenre(
+          moviesSlice,
+          req.params.genre
+        );
         // console.log(movieDetails);
         // console.log(movieGenres);
         // console.log(movieGenres[0]?.genres.toLowerCase().split("|"));
         // console.log(movieGenres[0]?.genres.split("|")?.includes(req.params.genre));
         // movies = movies.map(String);
+
+        if (
+          !movieDetails ||
+          movieDetails?.length === 0 ||
+          typeof movieDetails == "undefined"
+        ) {
+          continue;
+        }
+
         let count = 0;
-        while (list.length < req.params.k && count < movies.length) {
-          if (!preferred_movies.includes(movieDetails[count].index)) {
+        while (list.length < req.params.k && count < moviesSlice.length) {
+          if (!preferred_movies.includes(movieDetails[count]?.index)) {
             if (
-              movieDetails[count].genres
+              movieDetails[count]?.genres
                 ?.toLowerCase()
                 .split("|")
                 .includes(req.params.genre)

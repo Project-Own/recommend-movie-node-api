@@ -65,6 +65,54 @@ const findIndex = async (list) => {
   return allValues;
 };
 
+const findIndexFromTitle = async (title) => {
+  let allValues;
+
+  const titleRegex = new RegExp(title, "i");
+
+  const client = await MongoClient.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }).catch((err) => console.log(err));
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    const db = client.db("Movie");
+    const collection = db.collection("Movie");
+
+    let cursor = collection.find(
+      { title: titleRegex },
+      {
+        projection: { _id: 0, index: 1 },
+      }
+    );
+
+    // for await (const doc of cursor) {
+    //   console.log(doc);
+    // }
+    allValues = await cursor.toArray();
+
+    // console.log(allValues);
+  } catch (err) {
+    console.log(err);
+  } finally {
+    client.close();
+  }
+  return allValues;
+};
+
+app.post("/findIndex", async (req, res) => {
+  const title = req.body.title;
+
+  const index = await findIndexFromTitle(title);
+
+  console.log(index);
+  res.send({ index: index });
+});
+
 const findGenres = async (list) => {
   let allValues;
   const client = await MongoClient.connect(uri, {

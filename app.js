@@ -333,7 +333,7 @@ app.get("/predict/:genre/:k", async (req, res) => {
 
     let list = [];
     let mainLoopCounter = 0;
-    const increment = parseInt(req.params.k);
+    const increment = 50;
     while (list.length < req.params.k && mainLoopCounter < 1000) {
       const moviesSlice = movies.slice(
         mainLoopCounter,
@@ -377,7 +377,6 @@ app.get("/predict/:genre/:k", async (req, res) => {
       }
     }
     // console.log(movies);
-    // console.log(list);
 
     res.send({
       movies: list,
@@ -542,7 +541,7 @@ app.post("/predict/:genre/:k", async (req, res) => {
 
       let list = [];
       let mainLoopCounter = 0;
-      const increment = parseInt(req.params.k);
+      const increment = 50;
       while (list.length < req.params.k && mainLoopCounter < 1000) {
         const moviesSlice = movies.slice(
           mainLoopCounter,
@@ -583,6 +582,13 @@ app.post("/predict/:genre/:k", async (req, res) => {
           count++;
         }
       }
+
+      // console.log(list);
+
+      list = list.sort((a, b) => {
+        return b.popularity - a.popularity;
+      });
+      // console.log(list);
 
       res.send({ movie: list });
     }

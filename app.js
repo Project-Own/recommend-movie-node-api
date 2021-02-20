@@ -15,7 +15,8 @@ app.use(express.static("public"));
 app.use(bodyParser.json());
 
 const loadModel = async () => {
-  model = await tf.loadGraphModel("file://MultVaeJS/model.json");
+  model = await tf.loadGraphModel("file://MultVaeJS(64-32-64)/model.json");
+  // model = await tf.loadGraphModel("file://MultVaeJS/model.json");
   // model = await tf.loadGraphModel("file://HVAE-EMBEDDING-KDD-JS/model.json");
   console.log("MODEL LOADED");
 };

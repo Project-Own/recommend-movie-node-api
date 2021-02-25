@@ -15,9 +15,12 @@ app.use(express.static("public"));
 app.use(bodyParser.json());
 
 const loadModel = async () => {
-  model = await tf.loadGraphModel("file://MultVaeJS(64-32-64)/model.json");
+  // model = await tf.loadGraphModel("file://MultVaeJS(64-32-64)/model.json");
+  model = await tf.loadGraphModel(
+    "file://VAEModel(JS)(128-64-32-16-8-16-32-64-128)/js/model.json"
+  );
   // model = await tf.loadGraphModel("file://MultVaeJS/model.json");
-  // model = await tf.loadGraphModel("file://HVAE-EMBEDDING-KDD-JS/model.json");
+  // model = await tf.loadGraphModel("file://HVAE-EMBEDDING-KDD-JS/js/model.json");
   console.log("MODEL LOADED");
 };
 

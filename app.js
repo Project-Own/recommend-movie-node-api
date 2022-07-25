@@ -19,8 +19,7 @@ const loadModel = async () => {
   model = await tf.loadGraphModel(
     "file://VAEModel(JS)(128-64-32-16-8-16-32-64-128)/js/model.json"
   );
-  // model = await tf.loadGraphModel("file://MultVaeJS/model.json");
-  // model = await tf.loadGraphModel("file://HVAE-EMBEDDING-KDD-JS/js/model.json");
+ 
   console.log("MODEL LOADED");
 };
 

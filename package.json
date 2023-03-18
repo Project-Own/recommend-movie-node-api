@@ -10,7 +10,7 @@
     "start": "nodemon --max-old-space-size=512 app.js"
   },
   "dependencies": {
-    "@tensorflow/tfjs-node": "^2.7.0",
+    "@tensorflow/tfjs-node": "^2.8.6",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
